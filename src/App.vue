@@ -4,6 +4,23 @@ import { GistService } from './services/gistService.js';
 import { encrypt, decrypt } from './crypto/crypto.js';
 import { useTheme } from './composables/useTheme.js';
 
+// --- Config ---
+import { githubConfig } from './config.js'; // Synchronous import
+let gistServiceInstance = null;
+const configError = ref(null);
+
+// Initialize gistService and check for config errors immediately
+if (githubConfig.error) {
+  configError.value = githubConfig.error;
+} else {
+  try {
+    gistServiceInstance = new GistService(githubConfig.gistId, githubConfig.githubToken);
+  } catch (e) {
+    // This catch is mostly for GistService constructor errors
+    configError.value = e.message;
+  }
+}
+
 // --- Components ---
 import PasswordList from './components/PasswordList.vue';
 import PasswordModal from './components/PasswordModal.vue';
@@ -15,8 +32,6 @@ const { theme, toggleTheme } = useTheme();
 // --- Reactive State ---
 const settings = reactive({
   masterPassword: '',
-  gistId: '',
-  githubToken: '',
 });
 
 // User-related state
@@ -33,12 +48,10 @@ const showPasswordModal = ref(false);
 const currentItemToEdit = ref(null);
 
 // --- Computed Properties ---
-const areSettingsComplete = computed(() => {
-  return settings.masterPassword && settings.gistId && settings.githubToken;
-});
+const isMasterPasswordSet = computed(() => !!settings.masterPassword);
 
 const isReady = computed(() => {
-  return username.value && areSettingsComplete.value && !isLocked.value;
+  return !configError.value && username.value && isMasterPasswordSet.value && !isLocked.value && gistServiceInstance;
 });
 
 const sortedItems = computed(() => {
@@ -63,23 +76,16 @@ const groupedItems = computed(() => {
   return groups;
 });
 
-// --- Service Initialization ---
-let gistService;
-
-function initializeService() {
-  if (areSettingsComplete.value) {
-    gistService = new GistService(settings.gistId, settings.githubToken);
-  } else {
-    gistService = null;
-    isLocked.value = true;
-  }
-}
 
 // --- Core Logic ---
 async function loadData() {
-  if (!areSettingsComplete.value || !username.value) {
-    error.value = "Cài đặt hoặc thông tin người dùng chưa hoàn tất.";
-    if (!areSettingsComplete.value) showSettings.value = true;
+  if (configError.value) {
+    error.value = configError.value;
+    return;
+  }
+  if (!isMasterPasswordSet.value || !username.value || !gistServiceInstance) {
+    error.value = "Master Password hoặc thông tin người dùng chưa hoàn tất.";
+    if (!isMasterPasswordSet.value) showSettings.value = true;
     if (!username.value) showUserPrompt.value = true;
     return;
   }
@@ -88,8 +94,7 @@ async function loadData() {
   error.value = null;
   
   try {
-    initializeService();
-    const encryptedPayload = await gistService.fetchUserData(username.value);
+    const encryptedPayload = await gistServiceInstance.fetchUserData(username.value);
 
     if (encryptedPayload) {
       const decryptedData = await decrypt(encryptedPayload, settings.masterPassword);
@@ -107,8 +112,8 @@ async function loadData() {
 }
 
 async function saveData() {
-  if (isLocked.value) {
-    error.value = "Ứng dụng đang bị khóa. Không thể lưu.";
+  if (isLocked.value || !gistServiceInstance) {
+    error.value = "Ứng dụng đang bị khóa hoặc chưa được cấu hình. Không thể lưu.";
     return;
   }
   if (!username.value) {
@@ -122,7 +127,7 @@ async function saveData() {
   try {
     const dataToEncrypt = { items: items.value };
     const encryptedPayload = await encrypt(dataToEncrypt, settings.masterPassword);
-    await gistService.updateUserData(username.value, encryptedPayload);
+    await gistServiceInstance.updateUserData(username.value, encryptedPayload);
   } catch (e) {
     error.value = `Lỗi khi lưu dữ liệu: ${e.message}`;
   } finally {
@@ -132,21 +137,22 @@ async function saveData() {
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
+  if (configError.value) {
+    return; // Stop execution if config is invalid
+  }
+
   settings.masterPassword = localStorage.getItem('dungNtPassword') || '';
-  settings.gistId = localStorage.getItem('dungNtGistId') || '';
-  settings.githubToken = localStorage.getItem('dungNtGithubToken') || '';
-  
   const savedUsername = localStorage.getItem('dungNtUsername');
 
   if (savedUsername) {
     username.value = savedUsername;
-    if (areSettingsComplete.value) {
+    if (isMasterPasswordSet.value) {
       loadData();
     } else {
-      showSettings.value = true;
+      showSettings.value = true; // Prompt for master password
     }
   } else {
-    showUserPrompt.value = true;
+    showUserPrompt.value = true; // Prompt for username
   }
 });
 
@@ -162,40 +168,27 @@ function handleUserSelect() {
   localStorage.setItem('dungNtUsername', newUsername);
   showUserPrompt.value = false;
 
-  // After selecting a user, check if settings are ready
-  if (areSettingsComplete.value) {
+  if (isMasterPasswordSet.value) {
     loadData();
   } else {
-    showSettings.value = true; // Prompt for settings if not configured
+    showSettings.value = true;
   }
 }
 
 function handleSwitchUser() {
-  if (confirm('Bạn có chắc muốn đổi người dùng? Mọi thông tin chưa lưu có thể bị mất.')) {
-    // Clear user-specific data
+  if (confirm('Bạn có chắc muốn đổi người dùng?')) {
     localStorage.removeItem('dungNtUsername');
-    localStorage.removeItem('dungNtPassword'); // Master password is user-specific
-    
-    // Keep GistID and Token if they are meant to be shared across users on the same device
-    // localStorage.removeItem('dungNtGistId');
-    // localStorage.removeItem('dungNtGithubToken');
-
+    localStorage.removeItem('dungNtPassword');
     window.location.reload();
   }
 }
 
 function handleUpdateSettings(newSettings) {
   settings.masterPassword = newSettings.masterPassword;
-  settings.gistId = newSettings.gistId;
-  settings.githubToken = newSettings.githubToken;
-
   localStorage.setItem('dungNtPassword', newSettings.masterPassword);
-  localStorage.setItem('dungNtGistId', newSettings.gistId);
-  localStorage.setItem('dungNtGithubToken', newSettings.githubToken);
   
   showSettings.value = false;
   
-  // If a user is selected, load their data with the new settings
   if (username.value) {
     loadData();
   }
@@ -235,7 +228,14 @@ function openEditModal(item) {
 
 <template>
   <div>
-    <div v-if="showUserPrompt" class="user-prompt-view card">
+    <div v-if="configError" class="critical-error-view card">
+      <h2>Lỗi Cấu hình</h2>
+      <p>Không thể khởi động ứng dụng. Vui lòng kiểm tra lỗi sau:</p>
+      <pre>{{ configError }}</pre>
+      <p>Hãy chắc chắn rằng bạn đã tạo file <code>.env.local</code> và điền đầy đủ các biến môi trường, hoặc đã cấu hình chúng trên Vercel.</p>
+    </div>
+
+    <div v-else-if="showUserPrompt" class="user-prompt-view card">
         <h2>Chọn người dùng</h2>
         <p>Nhập username để tải dữ liệu hoặc tạo một user mới.</p>
         <form @submit.prevent="handleUserSelect" class="user-prompt-form">
@@ -281,9 +281,9 @@ function openEditModal(item) {
 
         <div v-if="!isReady && !isLoading && !showSettings && username" class="locked-view card">
           <h2>Ứng dụng chưa sẵn sàng</h2>
-          <p v-if="!areSettingsComplete">Vui lòng vào phần cài đặt để cấu hình Master Password, Gist ID và Token.</p>
-          <p v-else>Có lỗi xảy ra, vui lòng thử lại hoặc kiểm tra cài đặt.</p>
-          <button @click="loadData" v-if="areSettingsComplete">Thử lại</button>
+          <p v-if="!isMasterPasswordSet">Vui lòng vào phần cài đặt để cấu hình Master Password.</p>
+          <p v-else>Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại.</p>
+          <button @click="loadData" v-if="isMasterPasswordSet">Thử lại</button>
         </div>
 
         <div v-if="isReady" class="main-content">
@@ -338,9 +338,22 @@ function openEditModal(item) {
   border-color: var(--color-text-accent);
 }
 
-.loading-state, .locked-view, .user-prompt-view {
+.loading-state, .locked-view, .user-prompt-view, .critical-error-view {
   text-align: center;
   padding: 3rem 1rem;
+}
+
+.critical-error-view {
+  color: #ef4444;
+  border: 1px solid #ef4444;
+}
+.critical-error-view pre {
+  background-color: var(--color-background-soft);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .user-prompt-form {

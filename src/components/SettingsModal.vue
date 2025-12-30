@@ -1,5 +1,5 @@
 <script setup>
-import { reactive } from 'vue';
+import { reactive, onMounted } from 'vue';
 
 const props = defineProps({
   initialSettings: {
@@ -15,15 +15,24 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save', 'switch-user']);
 
 // Use a local reactive object for the form fields
-const localSettings = reactive({ ...props.initialSettings });
+const localSettings = reactive({ 
+  masterPassword: ''
+});
+
+onMounted(() => {
+  // Only sync the master password from props
+  localSettings.masterPassword = props.initialSettings.masterPassword || '';
+});
+
 
 function saveSettings() {
   // Perform basic validation
-  if (!localSettings.masterPassword || !localSettings.gistId || !localSettings.githubToken) {
-    alert('Vui lòng điền đầy đủ tất cả các trường.');
+  if (!localSettings.masterPassword) {
+    alert('Vui lòng điền Master Password.');
     return;
   }
-  emit('save', { ...localSettings });
+  // Only emit the master password
+  emit('save', { masterPassword: localSettings.masterPassword });
 }
 </script>
 
@@ -37,25 +46,13 @@ function saveSettings() {
         <button @click="$emit('switch-user')" class="button-link">Đổi User</button>
       </div>
 
-      <p class="subtitle">Thông tin này sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
+      <p class="subtitle">Mật khẩu chính (Master Password) sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
       
       <form @submit.prevent="saveSettings">
         <div class="form-group">
           <label for="masterPassword">Master Password</label>
           <input id="masterPassword" type="password" v-model.trim="localSettings.masterPassword" required>
-          <small>Mật khẩu chính để mã hóa và giải mã dữ liệu của bạn.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="gistId">Gist ID</label>
-          <input id="gistId" type="text" v-model.trim="localSettings.gistId" required>
-          <small>ID của Gist riêng tư trên GitHub (phần cuối của URL).</small>
-        </div>
-
-        <div class="form-group">
-          <label for="githubToken">GitHub Personal Access Token</label>
-          <input id="githubToken" type="password" v-model.trim="localSettings.githubToken" required>
-          <small>Token có quyền truy cập vào Gist của bạn.</small>
+          <small>Mật khẩu chính để mã hóa và giải mã dữ liệu của bạn. Mật khẩu này là duy nhất cho mỗi user.</small>
         </div>
 
         <div class="modal-actions">
