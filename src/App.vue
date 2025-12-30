@@ -41,6 +41,20 @@ const sortedItems = computed(() => {
   });
 });
 
+const groupedItems = computed(() => {
+  const groups = sortedItems.value.reduce((acc, item) => {
+    const firstLetter = item.app ? item.app[0].toUpperCase() : '#';
+    const groupKey = firstLetter.match(/[A-Z]/) ? firstLetter : '#';
+    
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(item);
+    return acc;
+  }, {});
+  return groups;
+});
+
 // --- Service Initialization ---
 let gistService;
 
@@ -198,7 +212,7 @@ function openEditModal(item) {
       </div>
 
       <div v-if="!isLocked && !isLoading" class="main-content">
-        <PasswordList :items="sortedItems" @view="openEditModal" @delete="handleDeleteItem" />
+        <PasswordList :items="groupedItems" @view="openEditModal" @delete="handleDeleteItem" />
         <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button>
       </div>
       
