@@ -22,8 +22,7 @@ defineEmits(['view', 'delete']);
           <span class="username">{{ item.username }}</span>
         </div>
         <div class="item-actions">
-          <button @click="$emit('view', item)" title="View/Edit">✏️</button>
-          <button @click="$emit('delete', item.id)" title="Delete">🗑️</button>
+          <button @click="$emit('delete', item.id)" title="Delete"><img src="/icons/delete-icon.png" width="24" alt="Delete"></button>
         </div>
       </li>
     </ul>
@@ -80,7 +79,7 @@ defineEmits(['view', 'delete']);
   cursor: pointer;
   font-size: 1.2rem;
   margin-left: 0.75rem;
-  opacity: 0.7;
+  opacity: 1;
   transition: opacity 0.2s;
 }
 
