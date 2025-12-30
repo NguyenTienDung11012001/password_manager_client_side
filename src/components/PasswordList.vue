@@ -45,7 +45,7 @@ const hasItems = computed(() => {
               <span class="username">{{ item.username }}</span>
             </div>
             <div class="item-actions">
-              <button @click.stop="$emit('delete', item.id)" class="delete-button" title="Delete">
+              <button @click.stop="$emit('delete', item.id)" class="icon-button" title="Delete">
                 <img src="/icons/trash.png" alt="Delete" width="20">
               </button>
             </div>
@@ -130,28 +130,21 @@ const hasItems = computed(() => {
   font-size: 0.9rem;
 }
 
-.item-actions .delete-button {
+.item-actions .icon-button {
   background: none;
   border: none;
-  color: var(--color-text-secondary);
-  font-size: 1.25rem;
-  padding: 0.5rem;
-  border-radius: 50%;
   width: 40px;
   height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   opacity: 0.8;
   transition: all 0.2s ease;
 }
 
-.item-actions .delete-button:hover {
+.item-actions .icon-button:hover {
   background-color: var(--color-background);
   opacity: 1;
 }
 
-.item-actions .delete-button img {
+.item-actions .icon-button img {
   width: 20px;
   height: 20px;
 }

@@ -66,7 +66,7 @@ async function copyToClipboard(text, fieldName) {
           <label for="username">Username / Email</label>
           <div class="input-wrapper">
             <input id="username" type="text" v-model.trim="localItem.username" required>
-            <button type="button" @click="copyToClipboard(localItem.username, 'username')" class="icon-btn" title="Copy username">
+            <button type="button" @click="copyToClipboard(localItem.username, 'username')" class="icon-button" title="Copy username">
               <img src="/icons/copy.png" alt="Copy" width="20">
             </button>
           </div>
@@ -76,10 +76,10 @@ async function copyToClipboard(text, fieldName) {
           <label for="password">Password</label>
           <div class="input-wrapper">
             <input id="password" :type="showPassword ? 'text' : 'password'" v-model="localItem.password" required>
-            <button type="button" @click="showPassword = !showPassword" class="icon-btn toggle-vis-btn" title="Show/hide password">
+            <button type="button" @click="showPassword = !showPassword" class="icon-button toggle-vis-btn" title="Show/hide password">
               <img :src="showPassword ? '/icons/visual.png' : '/icons/hide.png'" alt="Toggle visibility" width="24">
             </button>
-            <button type="button" @click="copyToClipboard(localItem.password, 'password')" class="icon-btn copy-btn-pass" title="Copy password">
+            <button type="button" @click="copyToClipboard(localItem.password, 'password')" class="icon-button copy-btn-pass" title="Copy password">
               <img src="/icons/copy.png" alt="Copy" width="20">
             </button>
           </div>
@@ -152,7 +152,7 @@ label {
   padding-right: 6rem;
 }
 
-.icon-btn {
+.icon-button {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -167,7 +167,7 @@ label {
   align-items: center;
   justify-content: center;
 }
-.icon-btn:hover {
+.icon-button:hover {
   color: var(--color-text-primary);
 }
 
@@ -179,7 +179,7 @@ label {
   right: 0;
 }
 
-.input-wrapper #username + .icon-btn {
+.input-wrapper #username + .icon-button {
   right: 0;
 }
 

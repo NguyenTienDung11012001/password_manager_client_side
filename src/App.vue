@@ -188,9 +188,14 @@ function openEditModal(item) {
         <button @click="toggleTheme" class="icon-button" :title="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`">
           {{ theme === 'light' ? '🌙' : '☀️' }}
         </button>
-        <button @click="showSettings = true" class="icon-button" title="Settings">⚙️</button>
-        <button v-if="!isLocked" @click="lockApp" class="icon-button" title="Lock">🔒</button>
-        <button v-if="isLocked && areSettingsComplete" @click="loadData" class="icon-button" title="Unlock">🔓</button>
+        <button @click="showSettings = true" class="icon-button" title="Settings">
+          <img src="/icons/setting.png" alt="Settings" width="24" />
+        </button>
+        <!-- <button v-if="!isLocked" @click="lockApp" class="icon-button" title="Lock">🔒</button>
+        <button v-if="isLocked && areSettingsComplete" @click="loadData" class="icon-button" title="Unlock">🔓</button> -->
+        <button v-if="!isLocked" @click="openAddModal" class="icon-button" title="Thêm Mật khẩu">
+          <img src="/icons/add.png" alt="Add" width="18" />
+        </button>
       </div>
     </header>
 
@@ -213,7 +218,7 @@ function openEditModal(item) {
 
       <div v-if="!isLocked && !isLoading" class="main-content">
         <PasswordList :items="groupedItems" @view="openEditModal" @delete="handleDeleteItem" />
-        <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button>
+        <!-- <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button> -->
       </div>
       
       <PasswordModal 
@@ -276,12 +281,5 @@ function openEditModal(item) {
 
 .main-content {
   margin-top: 2rem;
-}
-
-.add-button {
-  display: block;
-  width: 100%;
-  margin-top: 1.5rem;
-  font-size: 1rem;
 }
 </style>

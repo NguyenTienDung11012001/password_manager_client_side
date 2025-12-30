@@ -113,7 +113,9 @@ input:focus, textarea:focus {
 }
 
 /* 5. Xử lý icon cho Dark Mode */
-html.dark .icon-btn img[src='/icons/copy.png'],
-html.dark .icon-btn img[src='/icons/trash.png'] {
+html.dark .icon-button img[src='/icons/copy.png'],
+html.dark .icon-button img[src='/icons/trash.png'],
+html.dark .icon-button img[src='/icons/setting.png'],
+html.dark .icon-button img[src='/icons/add.png'] {
   filter: invert(1) brightness(1.5) contrast(0.8);
 }
