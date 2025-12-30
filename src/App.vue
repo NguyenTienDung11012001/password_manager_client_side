@@ -32,6 +32,15 @@ const areSettingsComplete = computed(() => {
   return settings.masterPassword && settings.gistId && settings.githubToken;
 });
 
+const sortedItems = computed(() => {
+  // Create a shallow copy to avoid mutating the original array
+  return [...items.value].sort((a, b) => {
+    const appA = a.app ? a.app.toLowerCase() : '';
+    const appB = b.app ? b.app.toLowerCase() : '';
+    return appA.localeCompare(appB);
+  });
+});
+
 // --- Service Initialization ---
 let gistService;
 
@@ -189,7 +198,7 @@ function openEditModal(item) {
       </div>
 
       <div v-if="!isLocked && !isLoading" class="main-content">
-        <PasswordList :items="items" @view="openEditModal" @delete="handleDeleteItem" />
+        <PasswordList :items="sortedItems" @view="openEditModal" @delete="handleDeleteItem" />
         <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button>
       </div>
       
