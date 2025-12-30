@@ -2,11 +2,15 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { GistService } from './services/gistService.js';
 import { encrypt, decrypt } from './crypto/crypto.js';
+import { useTheme } from './composables/useTheme.js';
 
 // --- Components ---
 import PasswordList from './components/PasswordList.vue';
 import PasswordModal from './components/PasswordModal.vue';
 import SettingsModal from './components/SettingsModal.vue';
+
+// --- Theme ---
+const { theme, toggleTheme } = useTheme();
 
 // --- Reactive State ---
 const settings = reactive({
@@ -118,13 +122,11 @@ function handleUpdateSettings(newSettings) {
 
 function handleSaveItem(itemToSave) {
   if (itemToSave.id) {
-    // Update existing item
     const index = items.value.findIndex(item => item.id === itemToSave.id);
     if (index !== -1) {
       items.value[index] = itemToSave;
     }
   } else {
-    // Add new item
     itemToSave.id = crypto.randomUUID();
     items.value.push(itemToSave);
   }
@@ -156,19 +158,22 @@ function openEditModal(item) {
 </script>
 
 <template>
-  <div class="app-container">
-    <header>
+  <div>
+    <header class="app-header">
       <h1>Password Manager</h1>
-      <div class="actions">
-        <button @click="showSettings = true" title="Settings">⚙️</button>
-        <button v-if="!isLocked" @click="lockApp" title="Lock">🔒</button>
-        <button v-if="isLocked && areSettingsComplete" @click="loadData" title="Unlock">🔓</button>
+      <div class="header-actions">
+        <button @click="toggleTheme" class="icon-button" :title="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`">
+          {{ theme === 'light' ? '🌙' : '☀️' }}
+        </button>
+        <button @click="showSettings = true" class="icon-button" title="Settings">⚙️</button>
+        <button v-if="!isLocked" @click="lockApp" class="icon-button" title="Lock">🔒</button>
+        <button v-if="isLocked && areSettingsComplete" @click="loadData" class="icon-button" title="Unlock">🔓</button>
       </div>
     </header>
 
     <main>
-      <div v-if="isLoading" class="loading">Đang tải...</div>
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="isLoading" class="loading-state">Đang tải...</div>
+      <div v-if="error" class="error-state card">{{ error }}</div>
 
       <SettingsModal 
         v-if="showSettings" 
@@ -177,7 +182,7 @@ function openEditModal(item) {
         @save="handleUpdateSettings"
       />
 
-      <div v-if="isLocked && !showSettings" class="locked-view">
+      <div v-if="isLocked && !showSettings" class="locked-view card">
         <h2>Ứng dụng đã bị khóa</h2>
         <p v-if="!areSettingsComplete">Vui lòng vào phần cài đặt để cấu hình.</p>
         <p v-else>Nhấn nút Mở khóa 🔓 để giải mã dữ liệu.</p>
@@ -185,7 +190,7 @@ function openEditModal(item) {
 
       <div v-if="!isLocked && !isLoading" class="main-content">
         <PasswordList :items="items" @view="openEditModal" @delete="handleDeleteItem" />
-        <button @click="openAddModal" class="add-button">Thêm Mật khẩu</button>
+        <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button>
       </div>
       
       <PasswordModal 
@@ -198,57 +203,62 @@ function openEditModal(item) {
   </div>
 </template>
 
-<style>
-/* Basic styles for layout and feedback */
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background-color: #242424;
-  color: rgba(255, 255, 255, 0.87);
-}
-.app-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-header {
+<style scoped>
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
-.actions button {
-  margin-left: 0.5rem;
-  background: none;
-  border: 1px solid #555;
-  color: white;
-  padding: 0.5rem;
-  border-radius: 5px;
-  cursor: pointer;
+
+.app-header h1 {
+  font-size: 1.75rem;
+  margin: 0;
 }
-.loading, .error-message, .locked-view {
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.icon-button {
+  background-color: var(--color-card);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.25rem;
+  padding: 0;
+  box-shadow: var(--shadow);
+}
+.icon-button:hover {
+  background-color: var(--color-background);
+  border-color: var(--color-text-accent);
+}
+
+.loading-state, .locked-view {
   text-align: center;
-  padding: 2rem;
-  border: 1px dashed #555;
-  border-radius: 8px;
-  margin-top: 2rem;
+  padding: 3rem 1rem;
 }
-.error-message {
-  color: #ff6b6b;
-  border-color: #ff6b6b;
+
+.error-state {
+  text-align: center;
+  color: #ef4444;
+  border-color: #ef4444;
 }
+
 .main-content {
   margin-top: 2rem;
 }
+
 .add-button {
   display: block;
   width: 100%;
-  padding: 1rem;
   margin-top: 1.5rem;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 </style>

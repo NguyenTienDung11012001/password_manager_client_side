@@ -14,14 +14,10 @@ const localItem = ref({});
 const showPassword = ref(false);
 const copyFeedback = ref('');
 
-// Watch for changes in the prop and update the local state
-// watchEffect will run initially and whenever its dependencies change
 watchEffect(() => {
   if (props.itemToEdit) {
-    // Editing an existing item, create a copy to avoid mutating the prop
     localItem.value = { ...props.itemToEdit };
   } else {
-    // Adding a new item, start with a blank object
     localItem.value = { app: '', username: '', password: '', note: '' };
   }
 });
@@ -57,7 +53,7 @@ async function copyToClipboard(text, fieldName) {
 
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content">
+    <div class="card modal-content">
       <h2>{{ formTitle }}</h2>
       
       <form @submit.prevent="saveItem">
@@ -70,8 +66,8 @@ async function copyToClipboard(text, fieldName) {
           <label for="username">Username / Email</label>
           <div class="input-wrapper">
             <input id="username" type="text" v-model.trim="localItem.username" required>
-            <button type="button" @click="copyToClipboard(localItem.username, 'username')" class="copy-btn" title="Copy username">
-              <img src="/icons/copy-icon.png" width="16" alt="Copy">
+            <button type="button" @click="copyToClipboard(localItem.username, 'username')" class="icon-btn" title="Copy username">
+              <img src="/icons/copy.png" alt="Copy" width="20">
             </button>
           </div>
         </div>
@@ -80,11 +76,11 @@ async function copyToClipboard(text, fieldName) {
           <label for="password">Password</label>
           <div class="input-wrapper">
             <input id="password" :type="showPassword ? 'text' : 'password'" v-model="localItem.password" required>
-            <button type="button" @click="showPassword = !showPassword" class="toggle-vis-btn" title="Show/hide password">
-              {{ showPassword ? '🙈' : '👁️' }}
+            <button type="button" @click="showPassword = !showPassword" class="icon-btn toggle-vis-btn" title="Show/hide password">
+              <img :src="showPassword ? '/icons/visual.png' : '/icons/hide.png'" alt="Toggle visibility" width="24">
             </button>
-            <button type="button" @click="copyToClipboard(localItem.password, 'password')" class="copy-btn" title="Copy password">
-              <img src="/icons/copy-icon.png" width="16" alt="Copy">
+            <button type="button" @click="copyToClipboard(localItem.password, 'password')" class="icon-btn copy-btn-pass" title="Copy password">
+              <img src="/icons/copy.png" alt="Copy" width="20">
             </button>
           </div>
         </div>
@@ -96,8 +92,8 @@ async function copyToClipboard(text, fieldName) {
 
         <div class="modal-actions">
           <span v-if="copyFeedback" class="copy-feedback">{{ copyFeedback }}</span>
-          <button type="button" @click="$emit('close')">Hủy</button>
-          <button type="submit">Lưu</button>
+          <button type="button" @click="$emit('close')" class="button-secondary">Hủy</button>
+          <button type="submit" class="button-primary">Lưu</button>
         </div>
       </form>
     </div>
@@ -105,25 +101,40 @@ async function copyToClipboard(text, fieldName) {
 </template>
 
 <style scoped>
-/* Reusing most styles from SettingsModal, but with some specifics */
 .modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex; justify-content: center; align-items: center; z-index: 100;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
 }
+
 .modal-content {
-  background-color: #2f2f2f; padding: 2rem; border-radius: 8px;
-  width: 90%; max-width: 500px;
+  width: 90%;
+  max-width: 500px;
 }
-.form-group { margin-bottom: 1.5rem; }
-label { display: block; margin-bottom: 0.5rem; }
-input, textarea {
-  width: 100%; padding: 0.75rem; border: 1px solid #555; border-radius: 4px;
-  background-color: #333; color: white; box-sizing: border-box;
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
 }
-textarea {
-  min-height: 80px;
-  font-family: inherit;
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 .input-wrapper {
@@ -131,62 +142,59 @@ textarea {
   display: flex;
   align-items: center;
 }
+
 .input-wrapper input {
-  /* Adjust padding to make space for buttons */
-  padding-right: 5.5rem; 
-}
-.input-wrapper input#username {
-  padding-right: 3rem;
+  padding-right: 3rem; /* Space for one button */
 }
 
-.input-wrapper button {
+/* More space for two buttons in password field */
+#password {
+  padding-right: 6rem;
+}
+
+.icon-btn {
   position: absolute;
-  top: 1px;
-  bottom: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
   border: none;
-  background: #444;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  padding: 0 0.9rem;
-  color: white;
+  height: 100%;
+  width: 2.8rem;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.copy-btn {
-  right: 3rem; /* Position left of the visibility toggle */
-  border-radius: 0;
-  border-left: 1px solid #555;
-}
-
-.input-wrapper input#username + .copy-btn {
-  right: 1px;
-  border-radius: 0 4px 4px 0;
-  border-left: none;
+.icon-btn:hover {
+  color: var(--color-text-primary);
 }
 
 .toggle-vis-btn {
-  right: 1px;
-  border-radius: 0 4px 4px 0;
+  right: 2.8rem;
 }
 
-.modal-actions { 
+.copy-btn-pass {
+  right: 0;
+}
+
+.input-wrapper #username + .icon-btn {
+  right: 0;
+}
+
+
+.modal-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin-top: 2rem; 
+  gap: 0.75rem;
+  margin-top: 2rem;
 }
 
 .copy-feedback {
-  color: #42b983;
+  color: var(--color-text-accent);
   margin-right: auto;
   font-size: 0.9rem;
 }
-
-.modal-actions button {
-  padding: 0.75rem 1.5rem; 
-  border: none; 
-  border-radius: 5px; 
-  cursor: pointer; 
-  margin-left: 1rem;
-}
-.modal-actions button[type="button"] { background-color: #555; color: white; }
-.modal-actions button[type="submit"] { background-color: #42b983; color: white; }
 </style>

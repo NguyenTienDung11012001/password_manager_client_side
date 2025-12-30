@@ -4,8 +4,8 @@
   "description": "Client-side encrypted password manager",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#f9fafb",
+  "theme_color": "#f9fafb",
   "icons": [
     {
       "src": "/icons/icon-192.png",

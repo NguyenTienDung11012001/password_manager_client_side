@@ -25,9 +25,9 @@ function saveSettings() {
 
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content">
+    <div class="card modal-content">
       <h2>Cài đặt</h2>
-      <p>Thông tin này sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
+      <p class="subtitle">Thông tin này sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
       
       <form @submit.prevent="saveSettings">
         <div class="form-group">
@@ -49,8 +49,8 @@ function saveSettings() {
         </div>
 
         <div class="modal-actions">
-          <button type="button" @click="$emit('close')">Hủy</button>
-          <button type="submit">Lưu</button>
+          <button type="button" @click="$emit('close')" class="button-secondary">Hủy</button>
+          <button type="submit" class="button-primary">Lưu</button>
         </div>
       </form>
     </div>
@@ -64,7 +64,8 @@ function saveSettings() {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -72,11 +73,20 @@ function saveSettings() {
 }
 
 .modal-content {
-  background-color: #2f2f2f;
-  padding: 2rem;
-  border-radius: 8px;
   width: 90%;
   max-width: 500px;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.subtitle {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  color: var(--color-text-secondary);
 }
 
 .form-group {
@@ -86,44 +96,21 @@ function saveSettings() {
 label {
   display: block;
   margin-bottom: 0.5rem;
-}
-
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #555;
-  border-radius: 4px;
-  background-color: #333;
-  color: white;
-  box-sizing: border-box;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 small {
   display: block;
   margin-top: 0.5rem;
-  color: #aaa;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
 }
 
 .modal-actions {
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
   margin-top: 2rem;
-}
-
-.modal-actions button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-left: 1rem;
-}
-
-.modal-actions button[type="button"] {
-  background-color: #555;
-  color: white;
-}
-
-.modal-actions button[type="submit"] {
-  background-color: #42b983;
-  color: white;
 }
 </style>
