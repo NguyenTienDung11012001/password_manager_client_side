@@ -12,6 +12,7 @@ const emit = defineEmits(['close', 'save']);
 
 const localItem = ref({});
 const showPassword = ref(false);
+const copyFeedback = ref('');
 
 // Watch for changes in the prop and update the local state
 // watchEffect will run initially and whenever its dependencies change
@@ -35,6 +36,23 @@ function saveItem() {
   emit('save', localItem.value);
   emit('close');
 }
+
+async function copyToClipboard(text, fieldName) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    copyFeedback.value = `Đã sao chép ${fieldName}!`;
+    setTimeout(() => {
+      copyFeedback.value = '';
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy: ', err);
+    copyFeedback.value = 'Lỗi khi sao chép.';
+    setTimeout(() => {
+      copyFeedback.value = '';
+    }, 2000);
+  }
+}
 </script>
 
 <template>
@@ -50,15 +68,23 @@ function saveItem() {
 
         <div class="form-group">
           <label for="username">Username / Email</label>
-          <input id="username" type="text" v-model.trim="localItem.username" required>
+          <div class="input-wrapper">
+            <input id="username" type="text" v-model.trim="localItem.username" required>
+            <button type="button" @click="copyToClipboard(localItem.username, 'username')" class="copy-btn" title="Copy username">
+              <img src="/icons/copy-icon.png" width="16" alt="Copy">
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <div class="password-wrapper">
+          <div class="input-wrapper">
             <input id="password" :type="showPassword ? 'text' : 'password'" v-model="localItem.password" required>
-            <button type="button" @click="showPassword = !showPassword" class="toggle-vis">
+            <button type="button" @click="showPassword = !showPassword" class="toggle-vis-btn" title="Show/hide password">
               {{ showPassword ? '🙈' : '👁️' }}
+            </button>
+            <button type="button" @click="copyToClipboard(localItem.password, 'password')" class="copy-btn" title="Copy password">
+              <img src="/icons/copy-icon.png" width="16" alt="Copy">
             </button>
           </div>
         </div>
@@ -69,6 +95,7 @@ function saveItem() {
         </div>
 
         <div class="modal-actions">
+          <span v-if="copyFeedback" class="copy-feedback">{{ copyFeedback }}</span>
           <button type="button" @click="$emit('close')">Hủy</button>
           <button type="submit">Lưu</button>
         </div>
@@ -98,28 +125,67 @@ textarea {
   min-height: 80px;
   font-family: inherit;
 }
-.password-wrapper {
+
+.input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
-.password-wrapper input {
-  padding-right: 3rem; /* space for the button */
+.input-wrapper input {
+  /* Adjust padding to make space for buttons */
+  padding-right: 5.5rem; 
 }
-.toggle-vis {
+.input-wrapper input#username {
+  padding-right: 3rem;
+}
+
+.input-wrapper button {
   position: absolute;
-  right: 1px;
   top: 1px;
   bottom: 1px;
   border: none;
   background: #444;
-  padding: 0 1rem;
   cursor: pointer;
+  padding: 0 0.9rem;
+  color: white;
+}
+
+.copy-btn {
+  right: 3rem; /* Position left of the visibility toggle */
+  border-radius: 0;
+  border-left: 1px solid #555;
+}
+
+.input-wrapper input#username + .copy-btn {
+  right: 1px;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.toggle-vis-btn {
+  right: 1px;
   border-radius: 0 4px 4px 0;
 }
-.modal-actions { text-align: right; margin-top: 2rem; }
+
+.modal-actions { 
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 2rem; 
+}
+
+.copy-feedback {
+  color: #42b983;
+  margin-right: auto;
+  font-size: 0.9rem;
+}
+
 .modal-actions button {
-  padding: 0.75rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; margin-left: 1rem;
+  padding: 0.75rem 1.5rem; 
+  border: none; 
+  border-radius: 5px; 
+  cursor: pointer; 
+  margin-left: 1rem;
 }
 .modal-actions button[type="button"] { background-color: #555; color: white; }
 .modal-actions button[type="submit"] { background-color: #42b983; color: white; }
