@@ -19,6 +19,11 @@ const settings = reactive({
   githubToken: '',
 });
 
+// User-related state
+const username = ref('');
+const inputUsername = ref('');
+const showUserPrompt = ref(false);
+
 const items = ref([]); // Decrypted password items
 const isLoading = ref(false);
 const error = ref(null);
@@ -32,8 +37,11 @@ const areSettingsComplete = computed(() => {
   return settings.masterPassword && settings.gistId && settings.githubToken;
 });
 
+const isReady = computed(() => {
+  return username.value && areSettingsComplete.value && !isLocked.value;
+});
+
 const sortedItems = computed(() => {
-  // Create a shallow copy to avoid mutating the original array
   return [...items.value].sort((a, b) => {
     const appA = a.app ? a.app.toLowerCase() : '';
     const appB = b.app ? b.app.toLowerCase() : '';
@@ -62,15 +70,17 @@ function initializeService() {
   if (areSettingsComplete.value) {
     gistService = new GistService(settings.gistId, settings.githubToken);
   } else {
+    gistService = null;
     isLocked.value = true;
   }
 }
 
 // --- Core Logic ---
 async function loadData() {
-  if (!areSettingsComplete.value) {
-    error.value = "Cài đặt chưa hoàn tất. Vui lòng cung cấp Master Password, Gist ID, và GitHub Token.";
-    showSettings.value = true;
+  if (!areSettingsComplete.value || !username.value) {
+    error.value = "Cài đặt hoặc thông tin người dùng chưa hoàn tất.";
+    if (!areSettingsComplete.value) showSettings.value = true;
+    if (!username.value) showUserPrompt.value = true;
     return;
   }
 
@@ -79,7 +89,7 @@ async function loadData() {
   
   try {
     initializeService();
-    const encryptedPayload = await gistService.fetchData();
+    const encryptedPayload = await gistService.fetchUserData(username.value);
 
     if (encryptedPayload) {
       const decryptedData = await decrypt(encryptedPayload, settings.masterPassword);
@@ -89,7 +99,7 @@ async function loadData() {
     }
     isLocked.value = false;
   } catch (e) {
-    error.value = `Không thể tải dữ liệu: ${e.message}`;
+    error.value = `Không thể tải dữ liệu: ${e.message}. Sai Master Password hoặc lỗi mạng.`;
     isLocked.value = true; 
   } finally {
     isLoading.value = false;
@@ -101,6 +111,10 @@ async function saveData() {
     error.value = "Ứng dụng đang bị khóa. Không thể lưu.";
     return;
   }
+  if (!username.value) {
+    error.value = "Không có người dùng nào được chọn. Không thể lưu.";
+    return;
+  }
 
   isLoading.value = true;
   error.value = null;
@@ -108,7 +122,7 @@ async function saveData() {
   try {
     const dataToEncrypt = { items: items.value };
     const encryptedPayload = await encrypt(dataToEncrypt, settings.masterPassword);
-    await gistService.updateData(encryptedPayload);
+    await gistService.updateUserData(username.value, encryptedPayload);
   } catch (e) {
     error.value = `Lỗi khi lưu dữ liệu: ${e.message}`;
   } finally {
@@ -121,15 +135,55 @@ onMounted(() => {
   settings.masterPassword = localStorage.getItem('dungNtPassword') || '';
   settings.gistId = localStorage.getItem('dungNtGistId') || '';
   settings.githubToken = localStorage.getItem('dungNtGithubToken') || '';
+  
+  const savedUsername = localStorage.getItem('dungNtUsername');
 
-  if (areSettingsComplete.value) {
-    loadData();
+  if (savedUsername) {
+    username.value = savedUsername;
+    if (areSettingsComplete.value) {
+      loadData();
+    } else {
+      showSettings.value = true;
+    }
   } else {
-    showSettings.value = true;
+    showUserPrompt.value = true;
   }
 });
 
 // --- Event Handlers ---
+function handleUserSelect() {
+  const newUsername = inputUsername.value.trim();
+  if (!newUsername) {
+    error.value = "Username không được để trống.";
+    return;
+  }
+  error.value = null;
+  username.value = newUsername;
+  localStorage.setItem('dungNtUsername', newUsername);
+  showUserPrompt.value = false;
+
+  // After selecting a user, check if settings are ready
+  if (areSettingsComplete.value) {
+    loadData();
+  } else {
+    showSettings.value = true; // Prompt for settings if not configured
+  }
+}
+
+function handleSwitchUser() {
+  if (confirm('Bạn có chắc muốn đổi người dùng? Mọi thông tin chưa lưu có thể bị mất.')) {
+    // Clear user-specific data
+    localStorage.removeItem('dungNtUsername');
+    localStorage.removeItem('dungNtPassword'); // Master password is user-specific
+    
+    // Keep GistID and Token if they are meant to be shared across users on the same device
+    // localStorage.removeItem('dungNtGistId');
+    // localStorage.removeItem('dungNtGithubToken');
+
+    window.location.reload();
+  }
+}
+
 function handleUpdateSettings(newSettings) {
   settings.masterPassword = newSettings.masterPassword;
   settings.gistId = newSettings.gistId;
@@ -140,7 +194,11 @@ function handleUpdateSettings(newSettings) {
   localStorage.setItem('dungNtGithubToken', newSettings.githubToken);
   
   showSettings.value = false;
-  loadData();
+  
+  // If a user is selected, load their data with the new settings
+  if (username.value) {
+    loadData();
+  }
 }
 
 function handleSaveItem(itemToSave) {
@@ -164,11 +222,6 @@ function handleDeleteItem(itemId) {
   }
 }
 
-function lockApp() {
-  items.value = [];
-  isLocked.value = true;
-}
-
 function openAddModal() {
   currentItemToEdit.value = null;
   showPasswordModal.value = true;
@@ -182,52 +235,69 @@ function openEditModal(item) {
 
 <template>
   <div>
-    <header class="app-header">
-      <h1>Password Manager</h1>
-      <div class="header-actions">
-        <button @click="toggleTheme" class="icon-button" :title="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`">
-          {{ theme === 'light' ? '🌙' : '☀️' }}
-        </button>
-        <button @click="showSettings = true" class="icon-button" title="Settings">
-          <img src="/icons/setting.png" alt="Settings" width="24" />
-        </button>
-        <!-- <button v-if="!isLocked" @click="lockApp" class="icon-button" title="Lock">🔒</button>
-        <button v-if="isLocked && areSettingsComplete" @click="loadData" class="icon-button" title="Unlock">🔓</button> -->
-        <button v-if="!isLocked" @click="openAddModal" class="icon-button" title="Thêm Mật khẩu">
-          <img src="/icons/add.png" alt="Add" width="18" />
-        </button>
-      </div>
-    </header>
+    <div v-if="showUserPrompt" class="user-prompt-view card">
+        <h2>Chọn người dùng</h2>
+        <p>Nhập username để tải dữ liệu hoặc tạo một user mới.</p>
+        <form @submit.prevent="handleUserSelect" class="user-prompt-form">
+          <input 
+            type="text" 
+            v-model="inputUsername" 
+            placeholder="Nhập username..."
+            required
+          />
+          <button type="submit" class="button-primary">Tiếp tục</button>
+        </form>
+        <div v-if="error" class="error-state-small">{{ error }}</div>
+    </div>
 
-    <main>
-      <div v-if="isLoading" class="loading-state">Đang tải...</div>
-      <div v-if="error" class="error-state card">{{ error }}</div>
+    <div v-else>
+      <header class="app-header">
+        <h1>Password Manager</h1>
+        <div class="header-actions">
+          <button @click="toggleTheme" class="icon-button" :title="`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`">
+            {{ theme === 'light' ? '🌙' : '☀️' }}
+          </button>
+          <button @click="showSettings = true" class="icon-button" title="Settings">
+            <img src="/icons/setting.png" alt="Settings" width="24" />
+          </button>
+          <button v-if="isReady" @click="openAddModal" class="icon-button" title="Thêm Mật khẩu">
+            <img src="/icons/add.png" alt="Add" width="18" />
+          </button>
+        </div>
+      </header>
 
-      <SettingsModal 
-        v-if="showSettings" 
-        :initial-settings="settings"
-        @close="showSettings = false"
-        @save="handleUpdateSettings"
-      />
+      <main>
+        <div v-if="isLoading" class="loading-state">Đang tải...</div>
+        <div v-if="error && !showUserPrompt" class="error-state card">{{ error }}</div>
 
-      <div v-if="isLocked && !showSettings" class="locked-view card">
-        <h2>Ứng dụng đã bị khóa</h2>
-        <p v-if="!areSettingsComplete">Vui lòng vào phần cài đặt để cấu hình.</p>
-        <p v-else>Nhấn nút Mở khóa 🔓 để giải mã dữ liệu.</p>
-      </div>
+        <SettingsModal 
+          v-if="showSettings" 
+          :initial-settings="settings"
+          :username="username"
+          @close="showSettings = false"
+          @save="handleUpdateSettings"
+          @switch-user="handleSwitchUser"
+        />
 
-      <div v-if="!isLocked && !isLoading" class="main-content">
-        <PasswordList :items="groupedItems" @view="openEditModal" @delete="handleDeleteItem" />
-        <!-- <button @click="openAddModal" class="button-primary add-button">Thêm Mật khẩu</button> -->
-      </div>
-      
-      <PasswordModal 
-        v-if="showPasswordModal"
-        :item-to-edit="currentItemToEdit"
-        @close="showPasswordModal = false"
-        @save="handleSaveItem"
-      />
-    </main>
+        <div v-if="!isReady && !isLoading && !showSettings && username" class="locked-view card">
+          <h2>Ứng dụng chưa sẵn sàng</h2>
+          <p v-if="!areSettingsComplete">Vui lòng vào phần cài đặt để cấu hình Master Password, Gist ID và Token.</p>
+          <p v-else>Có lỗi xảy ra, vui lòng thử lại hoặc kiểm tra cài đặt.</p>
+          <button @click="loadData" v-if="areSettingsComplete">Thử lại</button>
+        </div>
+
+        <div v-if="isReady" class="main-content">
+          <PasswordList :items="groupedItems" @view="openEditModal" @delete="handleDeleteItem" />
+        </div>
+        
+        <PasswordModal 
+          v-if="showPasswordModal"
+          :item-to-edit="currentItemToEdit"
+          @close="showPasswordModal = false"
+          @save="handleSaveItem"
+        />
+      </main>
+    </div>
   </div>
 </template>
 
@@ -268,15 +338,30 @@ function openEditModal(item) {
   border-color: var(--color-text-accent);
 }
 
-.loading-state, .locked-view {
+.loading-state, .locked-view, .user-prompt-view {
   text-align: center;
   padding: 3rem 1rem;
+}
+
+.user-prompt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 300px;
+  margin: 1.5rem auto 0;
 }
 
 .error-state {
   text-align: center;
   color: #ef4444;
   border-color: #ef4444;
+}
+
+.error-state-small {
+  text-align: center;
+  color: #ef4444;
+  margin-top: 1rem;
+  font-size: 0.9rem;
 }
 
 .main-content {

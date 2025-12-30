@@ -8,7 +8,6 @@ const GIST_API_URL = 'https://api.github.com/gists/';
 export class GistService {
   #gistId;
   #githubToken;
-  #fileName; // The filename within the Gist to store our data
 
   /**
    * @param {string} gistId - The ID of the GitHub Gist.
@@ -20,16 +19,15 @@ export class GistService {
     }
     this.#gistId = gistId;
     this.#githubToken = githubToken;
-    // We'll store our content in a file named 'password-data.json' within the Gist.
-    // This name is arbitrary but must be consistent.
-    this.#fileName = 'password-data.json';
   }
 
   /**
-   * Fetches the encrypted payload from the GitHub Gist.
-   * @returns {Promise<string>} - The base64 encrypted payload.
+   * Fetches the encrypted payload for a specific user from the GitHub Gist.
+   * @param {string} username - The user identifier.
+   * @returns {Promise<string|null>} - The base64 encrypted payload, or null if not found.
    */
-  async fetchData() {
+  async fetchUserData(username) {
+    const fileName = `${username}.json`;
     try {
       const response = await fetch(`${GIST_API_URL}${this.#gistId}`, {
         method: 'GET',
@@ -45,37 +43,38 @@ export class GistService {
 
       const gist = await response.json();
 
-      if (!gist.files || !gist.files[this.#fileName]) {
-        // This likely means it's a new or empty Gist.
-        // We can create the file on the first update.
-        console.warn(`File "${this.#fileName}" not found in Gist. It will be created on the first save.`);
+      if (!gist.files || !gist.files[fileName]) {
+        console.warn(`File "${fileName}" not found in Gist for user "${username}". It will be created on the first save.`);
         return null;
       }
 
-      const fileContent = JSON.parse(gist.files[this.#fileName].content);
-      return fileContent.payload; // Return only the payload as required
+      const fileContent = JSON.parse(gist.files[fileName].content);
+      return fileContent.payload; // Return only the payload
 
     } catch (error) {
-      console.error('Failed to fetch data from Gist:', error);
-      throw new Error('Could not fetch data from Gist. Check Gist ID, token, and network connection.');
+      console.error(`Failed to fetch data for user "${username}":`, error);
+      throw new Error(`Could not fetch data for user "${username}". Check credentials and network.`);
     }
   }
 
   /**
-   * Updates the Gist with a new encrypted payload.
+   * Updates the Gist with a new encrypted payload for a specific user.
+   * @param {string} username - The user identifier.
    * @param {string} encryptedPayload - The new base64 encrypted payload.
    * @returns {Promise<void>}
    */
-  async updateData(encryptedPayload) {
+  async updateUserData(username, encryptedPayload) {
+    const fileName = `${username}.json`;
     const content = JSON.stringify({
       version: 1,
-      updated_at: new Date().toISOString(),
+      owner: username,
       payload: encryptedPayload,
+      updatedAt: Date.now(),
     });
 
     const body = {
       files: {
-        [this.#fileName]: {
+        [fileName]: {
           content: content,
         },
       },
@@ -96,8 +95,8 @@ export class GistService {
       }
 
     } catch (error) {
-      console.error('Failed to update Gist:', error);
-      throw new Error('Could not save data to Gist. Check Gist ID, token, and network connection.');
+      console.error(`Failed to update data for user "${username}":`, error);
+      throw new Error(`Could not save data for user "${username}". Check credentials and network.`);
     }
   }
 }

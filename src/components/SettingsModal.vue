@@ -5,10 +5,14 @@ const props = defineProps({
   initialSettings: {
     type: Object,
     required: true,
+  },
+  username: {
+    type: String,
+    default: '',
   }
 });
 
-const emit = defineEmits(['close', 'save']);
+const emit = defineEmits(['close', 'save', 'switch-user']);
 
 // Use a local reactive object for the form fields
 const localSettings = reactive({ ...props.initialSettings });
@@ -27,6 +31,12 @@ function saveSettings() {
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="card modal-content">
       <h2>Cài đặt</h2>
+      
+      <div v-if="username" class="user-info">
+        <span>Đang đăng nhập với tư cách: <strong>{{ username }}</strong></span>
+        <button @click="$emit('switch-user')" class="button-link">Đổi User</button>
+      </div>
+
       <p class="subtitle">Thông tin này sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
       
       <form @submit.prevent="saveSettings">
@@ -81,6 +91,26 @@ function saveSettings() {
   margin-top: 0;
   margin-bottom: 0.5rem;
   font-size: 1.5rem;
+}
+
+.user-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-background-soft);
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.button-link {
+  background: none;
+  border: none;
+  color: var(--color-text-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
 }
 
 .subtitle {
