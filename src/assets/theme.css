@@ -111,3 +111,9 @@ input:focus, textarea:focus {
   outline-offset: 2px;
   border-color: var(--color-text-accent);
 }
+
+/* 5. Xử lý icon cho Dark Mode */
+html.dark .icon-btn img[src='/icons/copy.png'],
+html.dark .icon-btn img[src='/icons/trash.png'] {
+  filter: invert(1) brightness(1.5) contrast(0.8);
+}
