@@ -40,7 +40,7 @@ export class GistService {
     if (!res.ok) throw new Error(`Không thể tải dữ liệu (HTTP ${res.status}).`);
 
     const data = await res.json();
-    return { payload: data.payload ?? null, authFailed: false };
+    return { payload: data.payload ?? null, authFailed: false, legacy: data.legacy === true };
   }
 
   /**

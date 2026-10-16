@@ -99,7 +99,7 @@ async function loadData() {
     const authSalt = await gistServiceInstance.getAuthSalt(username.value);
     authProof.value = await deriveAuthProof(settings.masterPassword, authSalt);
 
-    const { payload, authFailed } = await gistServiceInstance.fetchUserData(username.value, authProof.value);
+    const { payload, authFailed, legacy } = await gistServiceInstance.fetchUserData(username.value, authProof.value);
 
     if (authFailed) {
       // Tài khoản mới (chưa có dữ liệu) HOẶC sai master password.
@@ -111,6 +111,10 @@ async function loadData() {
       const decryptedData = await decrypt(payload, settings.masterPassword);
       items.value = decryptedData.items || [];
       isLocked.value = false;
+      // FIX #2 (migration): file v1 chưa có verifier -> lưu lại ngay để nâng cấp v2.
+      if (legacy) {
+        await saveData();
+      }
     } else {
       items.value = [];
       isLocked.value = false;
