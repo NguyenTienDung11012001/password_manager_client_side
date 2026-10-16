@@ -1,102 +1,59 @@
 // src/services/gistService.js
+//
+// FIX #1: Client KHÔNG còn giữ GitHub token hay Gist ID nữa.
+// Mọi thao tác đi qua serverless function /api/gist (xem api/gist.js),
+// nơi token được giữ an toàn ở phía server.
 
-const GIST_API_URL = 'https://api.github.com/gists/';
+const API_URL = '/api/gist';
 
 /**
- * A service class to interact with the GitHub Gist API.
+ * Service tương tác với Gist thông qua proxy server-side.
  */
 export class GistService {
-  #gistId;
-  #githubToken;
-
   /**
-   * @param {string} gistId - The ID of the GitHub Gist.
-   * @param {string} githubToken - The GitHub Personal Access Token.
-   */
-  constructor(gistId, githubToken) {
-    if (!gistId || !githubToken) {
-      throw new Error('Gist ID and GitHub Token are required.');
-    }
-    this.#gistId = gistId;
-    this.#githubToken = githubToken;
-  }
-
-  /**
-   * Fetches the encrypted payload for a specific user from the GitHub Gist.
-   * @param {string} username - The user identifier.
-   * @returns {Promise<string|null>} - The base64 encrypted payload, or null if not found.
+   * Lấy payload đã mã hóa của một user.
+   * @param {string} username
+   * @returns {Promise<string|null>} payload base64, hoặc null nếu chưa có.
    */
   async fetchUserData(username) {
-    const fileName = `${username}.json`;
     try {
-      const response = await fetch(`${GIST_API_URL}${this.#gistId}`, {
+      const response = await fetch(`${API_URL}?username=${encodeURIComponent(username)}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.#githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-        },
+        headers: { Accept: 'application/json' },
       });
 
       if (!response.ok) {
-        throw new Error(`GitHub API responded with status ${response.status}`);
+        throw new Error(`Server responded with status ${response.status}`);
       }
 
-      const gist = await response.json();
-
-      if (!gist.files || !gist.files[fileName]) {
-        console.warn(`File "${fileName}" not found in Gist for user "${username}". It will be created on the first save.`);
-        return null;
-      }
-
-      const fileContent = JSON.parse(gist.files[fileName].content);
-      return fileContent.payload; // Return only the payload
-
+      const data = await response.json();
+      return data.payload ?? null;
     } catch (error) {
       console.error(`Failed to fetch data for user "${username}":`, error);
-      throw new Error(`Could not fetch data for user "${username}". Check credentials and network.`);
+      throw new Error(`Could not fetch data for user "${username}". Check network.`);
     }
   }
 
   /**
-   * Updates the Gist with a new encrypted payload for a specific user.
-   * @param {string} username - The user identifier.
-   * @param {string} encryptedPayload - The new base64 encrypted payload.
+   * Cập nhật payload đã mã hóa cho một user.
+   * @param {string} username
+   * @param {string} encryptedPayload
    * @returns {Promise<void>}
    */
   async updateUserData(username, encryptedPayload) {
-    const fileName = `${username}.json`;
-    const content = JSON.stringify({
-      version: 1,
-      owner: username,
-      payload: encryptedPayload,
-      updatedAt: Date.now(),
-    });
-
-    const body = {
-      files: {
-        [fileName]: {
-          content: content,
-        },
-      },
-    };
-
     try {
-      const response = await fetch(`${GIST_API_URL}${this.#gistId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${this.#githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-        },
-        body: JSON.stringify(body),
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, payload: encryptedPayload }),
       });
 
       if (!response.ok) {
-        throw new Error(`GitHub API responded with status ${response.status}`);
+        throw new Error(`Server responded with status ${response.status}`);
       }
-
     } catch (error) {
       console.error(`Failed to update data for user "${username}":`, error);
-      throw new Error(`Could not save data for user "${username}". Check credentials and network.`);
+      throw new Error(`Could not save data for user "${username}". Check network.`);
     }
   }
 }

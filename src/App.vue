@@ -14,7 +14,7 @@ if (githubConfig.error) {
   configError.value = githubConfig.error;
 } else {
   try {
-    gistServiceInstance = new GistService(githubConfig.gistId, githubConfig.githubToken);
+    gistServiceInstance = new GistService();
   } catch (e) {
     // This catch is mostly for GistService constructor errors
     configError.value = e.message;

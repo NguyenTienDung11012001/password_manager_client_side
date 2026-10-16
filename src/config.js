@@ -1,16 +1,9 @@
 // src/config.js
-
-const GIST_ID = import.meta.env.VITE_GIST_ID;
-const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_ACCESS_TOKEN;
-
-let configErrorMessage = null;
-if (!GIST_ID || !GITHUB_TOKEN) {
-  configErrorMessage = 'Các biến môi trường VITE_GIST_ID và VITE_GITHUB_ACCESS_TOKEN là bắt buộc. ' +
-                       'Vui lòng tạo file .env.local và khai báo chúng, hoặc cấu hình trên Vercel.';
-}
+//
+// FIX #1: Client không còn đọc GitHub token / Gist ID nữa.
+// Chúng được cấu hình phía server (GITHUB_TOKEN, GIST_ID) và dùng trong api/gist.js.
+// Giữ lại export `githubConfig` để tương thích với App.vue.
 
 export const githubConfig = {
-  gistId: GIST_ID,
-  githubToken: GITHUB_TOKEN,
-  error: configErrorMessage,
+  error: null,
 };
