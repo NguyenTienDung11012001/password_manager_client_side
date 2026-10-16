@@ -263,9 +263,11 @@ function openEditModal(item) {
         <h2>Chọn người dùng</h2>
         <p>Nhập username để tải dữ liệu hoặc tạo một user mới.</p>
         <form @submit.prevent="handleUserSelect" class="user-prompt-form">
-          <input 
-            type="text" 
-            v-model="inputUsername" 
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            v-model="inputUsername"
             placeholder="Nhập username..."
             required
           />

@@ -48,10 +48,28 @@ function saveSettings() {
 
       <p class="subtitle">Mật khẩu chính (Master Password) chỉ được giữ tạm trong phiên làm việc, không lưu lại trên trình duyệt. Bạn cần nhập lại mỗi lần mở ứng dụng.</p>
       
-      <form @submit.prevent="saveSettings">
+      <form @submit.prevent="saveSettings" autocomplete="on">
+        <!-- Field username ẩn giúp Chrome/trình quản lý mật khẩu gắn master password với đúng tài khoản (autofill + lưu). -->
+        <input
+          class="visually-hidden"
+          type="text"
+          name="username"
+          autocomplete="username"
+          :value="username"
+          readonly
+          tabindex="-1"
+          aria-hidden="true"
+        />
         <div class="form-group">
           <label for="masterPassword">Master Password</label>
-          <input id="masterPassword" type="password" v-model.trim="localSettings.masterPassword" required>
+          <input
+            id="masterPassword"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            v-model.trim="localSettings.masterPassword"
+            required
+          >
           <small>Mật khẩu chính để mã hóa và giải mã dữ liệu của bạn. Mật khẩu này là duy nhất cho mỗi user.</small>
         </div>
 
@@ -65,6 +83,19 @@ function saveSettings() {
 </template>
 
 <style scoped>
+/* Ẩn khỏi mắt nhưng vẫn render để Chrome nhận diện field username (không dùng display:none). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
