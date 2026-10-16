@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
 import { GistService } from './services/gistService.js';
-import { encrypt, decrypt } from './crypto/crypto.js';
+import { encrypt, decrypt, deriveAuthProof } from './crypto/crypto.js';
 import { useTheme } from './composables/useTheme.js';
 
 // --- Config ---
@@ -40,6 +40,7 @@ const inputUsername = ref('');
 const showUserPrompt = ref(false);
 
 const items = ref([]); // Decrypted password items
+const authProof = ref(null); // FIX #2: chứng minh biết master password (giữ trong RAM)
 const isLoading = ref(false);
 const error = ref(null);
 const isLocked = ref(true);
@@ -94,18 +95,29 @@ async function loadData() {
   error.value = null;
   
   try {
-    const encryptedPayload = await gistServiceInstance.fetchUserData(username.value);
+    // FIX #2: lấy salt từ server, tính authProof, rồi đọc dữ liệu kèm proof.
+    const authSalt = await gistServiceInstance.getAuthSalt(username.value);
+    authProof.value = await deriveAuthProof(settings.masterPassword, authSalt);
 
-    if (encryptedPayload) {
-      const decryptedData = await decrypt(encryptedPayload, settings.masterPassword);
+    const { payload, authFailed } = await gistServiceInstance.fetchUserData(username.value, authProof.value);
+
+    if (authFailed) {
+      // Tài khoản mới (chưa có dữ liệu) HOẶC sai master password.
+      // Mở khóa với kho rỗng; nếu sai mật khẩu cho tài khoản đã tồn tại,
+      // thao tác lưu sau đó sẽ bị server từ chối (401) nên dữ liệu không mất.
+      items.value = [];
+      isLocked.value = false;
+    } else if (payload) {
+      const decryptedData = await decrypt(payload, settings.masterPassword);
       items.value = decryptedData.items || [];
+      isLocked.value = false;
     } else {
       items.value = [];
+      isLocked.value = false;
     }
-    isLocked.value = false;
   } catch (e) {
-    error.value = `Không thể tải dữ liệu: ${e.message}. Sai Master Password hoặc lỗi mạng.`;
-    isLocked.value = true; 
+    error.value = `Không thể tải dữ liệu: ${e.message}`;
+    isLocked.value = true;
   } finally {
     isLoading.value = false;
   }
@@ -125,11 +137,20 @@ async function saveData() {
   error.value = null;
   
   try {
+    if (!authProof.value) {
+      const authSalt = await gistServiceInstance.getAuthSalt(username.value);
+      authProof.value = await deriveAuthProof(settings.masterPassword, authSalt);
+    }
     const dataToEncrypt = { items: items.value };
     const encryptedPayload = await encrypt(dataToEncrypt, settings.masterPassword);
-    await gistServiceInstance.updateUserData(username.value, encryptedPayload);
+    await gistServiceInstance.updateUserData(username.value, authProof.value, encryptedPayload);
   } catch (e) {
-    error.value = `Lỗi khi lưu dữ liệu: ${e.message}`;
+    if (e.message === 'AUTH_FAILED') {
+      error.value = 'Sai Master Password cho tài khoản này. Dữ liệu trên máy chủ không bị thay đổi.';
+      isLocked.value = true;
+    } else {
+      error.value = `Lỗi khi lưu dữ liệu: ${e.message}`;
+    }
   } finally {
     isLoading.value = false;
   }
@@ -141,16 +162,13 @@ onMounted(() => {
     return; // Stop execution if config is invalid
   }
 
-  settings.masterPassword = localStorage.getItem('dungNtPassword') || '';
+  // FIX #3: KHÔNG đọc master password từ localStorage nữa (không còn lưu).
+  // Master password chỉ tồn tại trong RAM, phải nhập lại mỗi phiên.
   const savedUsername = localStorage.getItem('dungNtUsername');
 
   if (savedUsername) {
     username.value = savedUsername;
-    if (isMasterPasswordSet.value) {
-      loadData();
-    } else {
-      showSettings.value = true; // Prompt for master password
-    }
+    showSettings.value = true; // Luôn yêu cầu nhập lại master password
   } else {
     showUserPrompt.value = true; // Prompt for username
   }
@@ -178,17 +196,19 @@ function handleUserSelect() {
 function handleSwitchUser() {
   if (confirm('Bạn có chắc muốn đổi người dùng?')) {
     localStorage.removeItem('dungNtUsername');
-    localStorage.removeItem('dungNtPassword');
+    settings.masterPassword = '';
+    authProof.value = null;
     window.location.reload();
   }
 }
 
 function handleUpdateSettings(newSettings) {
+  // FIX #3: chỉ giữ trong RAM, KHÔNG lưu vào localStorage.
   settings.masterPassword = newSettings.masterPassword;
-  localStorage.setItem('dungNtPassword', newSettings.masterPassword);
-  
+  authProof.value = null; // buộc dẫn xuất lại proof với mật khẩu mới nhập
+
   showSettings.value = false;
-  
+
   if (username.value) {
     loadData();
   }

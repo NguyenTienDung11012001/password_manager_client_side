@@ -1,59 +1,60 @@
 // src/services/gistService.js
 //
-// FIX #1: Client KHÔNG còn giữ GitHub token hay Gist ID nữa.
-// Mọi thao tác đi qua serverless function /api/gist (xem api/gist.js),
-// nơi token được giữ an toàn ở phía server.
+// Giao tiếp với serverless proxy /api/gist.
+// FIX #2: mọi thao tác đọc/ghi phải kèm authProof (chứng minh biết master password).
 
 const API_URL = '/api/gist';
 
-/**
- * Service tương tác với Gist thông qua proxy server-side.
- */
 export class GistService {
   /**
-   * Lấy payload đã mã hóa của một user.
+   * Lấy authSalt (do server dẫn xuất từ username) để client tính authProof.
    * @param {string} username
-   * @returns {Promise<string|null>} payload base64, hoặc null nếu chưa có.
+   * @returns {Promise<string>} authSalt base64
    */
-  async fetchUserData(username) {
-    try {
-      const response = await fetch(`${API_URL}?username=${encodeURIComponent(username)}`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.payload ?? null;
-    } catch (error) {
-      console.error(`Failed to fetch data for user "${username}":`, error);
-      throw new Error(`Could not fetch data for user "${username}". Check network.`);
-    }
+  async getAuthSalt(username) {
+    const res = await fetch(`${API_URL}?username=${encodeURIComponent(username)}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Không lấy được thông tin đăng nhập (HTTP ${res.status}).`);
+    const data = await res.json();
+    if (!data.authSalt) throw new Error('Phản hồi server thiếu authSalt.');
+    return data.authSalt;
   }
 
   /**
-   * Cập nhật payload đã mã hóa cho một user.
-   * @param {string} username
-   * @param {string} encryptedPayload
-   * @returns {Promise<void>}
+   * Đọc payload của user — cần authProof đúng.
+   * @returns {Promise<{payload: string|null, authFailed: boolean}>}
    */
-  async updateUserData(username, encryptedPayload) {
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, payload: encryptedPayload }),
-      });
+  async fetchUserData(username, authProof) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, authProof, action: 'fetch' }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-    } catch (error) {
-      console.error(`Failed to update data for user "${username}":`, error);
-      throw new Error(`Could not save data for user "${username}". Check network.`);
+    if (res.status === 401) {
+      // Tài khoản mới HOẶC sai master password (không phân biệt để chống dò).
+      return { payload: null, authFailed: true };
     }
+    if (!res.ok) throw new Error(`Không thể tải dữ liệu (HTTP ${res.status}).`);
+
+    const data = await res.json();
+    return { payload: data.payload ?? null, authFailed: false };
+  }
+
+  /**
+   * Ghi payload — cần authProof đúng (nếu user đã tồn tại). Lần đầu = đăng ký.
+   * @throws {Error} 'AUTH_FAILED' nếu sai master password cho tài khoản đã tồn tại.
+   */
+  async updateUserData(username, authProof, encryptedPayload) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, authProof, payload: encryptedPayload }),
+    });
+
+    if (res.status === 401) throw new Error('AUTH_FAILED');
+    if (!res.ok) throw new Error(`Không thể lưu dữ liệu (HTTP ${res.status}).`);
   }
 }

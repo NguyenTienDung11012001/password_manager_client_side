@@ -46,7 +46,7 @@ function saveSettings() {
         <button @click="$emit('switch-user')" class="button-link">Đổi User</button>
       </div>
 
-      <p class="subtitle">Mật khẩu chính (Master Password) sẽ được lưu vào localStorage trên trình duyệt của bạn.</p>
+      <p class="subtitle">Mật khẩu chính (Master Password) chỉ được giữ tạm trong phiên làm việc, không lưu lại trên trình duyệt. Bạn cần nhập lại mỗi lần mở ứng dụng.</p>
       
       <form @submit.prevent="saveSettings">
         <div class="form-group">
