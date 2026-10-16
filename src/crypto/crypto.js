@@ -5,6 +5,9 @@ const SALT_LENGTH = 16; // bytes
 const IV_LENGTH = 12; // bytes
 // FIX #6: tăng số vòng PBKDF2 (OWASP 2023 khuyến nghị >= 600k cho PBKDF2-HMAC-SHA256).
 const PBKDF2_ITERATIONS = 600000;
+// Số vòng cũ — dữ liệu mã hóa TRƯỚC khi nâng cấp dùng giá trị này.
+// decrypt() sẽ fallback về đây để vẫn giải mã được dữ liệu cũ (tương thích ngược).
+const LEGACY_PBKDF2_ITERATIONS = 310000;
 // Số vòng cho "auth proof" — tách biệt với khóa mã hóa.
 const AUTH_ITERATIONS = 200000;
 
@@ -24,7 +27,7 @@ function base64ToBytes(b64) {
  * @param {Uint8Array} salt
  * @returns {Promise<CryptoKey>}
  */
-async function deriveKey(password, salt) {
+async function deriveKey(password, salt, iterations = PBKDF2_ITERATIONS) {
   const passwordBuffer = new TextEncoder().encode(password);
 
   const baseKey = await window.crypto.subtle.importKey(
@@ -39,7 +42,7 @@ async function deriveKey(password, salt) {
     {
       name: 'PBKDF2',
       salt: salt,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: 'SHA-256',
     },
     baseKey,
@@ -110,17 +113,22 @@ export async function decrypt(base64String, password) {
   const iv = combinedBuffer.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
   const ciphertext = combinedBuffer.slice(SALT_LENGTH + IV_LENGTH);
 
-  const key = await deriveKey(password, salt);
-
-  try {
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv },
-      key,
-      ciphertext
-    );
-    return JSON.parse(new TextDecoder().decode(decryptedBuffer));
-  } catch (error) {
-    console.error('Decryption failed:', error);
-    throw new Error('Could not decrypt data. The master password may be incorrect.');
+  // Thử số vòng hiện tại trước, rồi fallback về số vòng cũ để tương thích dữ liệu
+  // đã mã hóa trước khi nâng cấp #6. Dữ liệu cũ sẽ được mã hóa lại bằng số vòng mới
+  // trong lần lưu kế tiếp.
+  for (const iterations of [PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS]) {
+    try {
+      const key = await deriveKey(password, salt, iterations);
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        ciphertext
+      );
+      return JSON.parse(new TextDecoder().decode(decryptedBuffer));
+    } catch {
+      // thử số vòng tiếp theo
+    }
   }
+
+  throw new Error('Could not decrypt data. The master password may be incorrect.');
 }
